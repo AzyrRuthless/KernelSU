@@ -35,7 +35,7 @@ endif
 GIT_TOOL := /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git
 
 # Check for both https & ssh remote
-REMOTE_CHECK := $(shell cd $(SRC_LOCATION); $(GIT_TOOL) remote -v | grep -E 'github\.com[/:]rsuntk/KernelSU')
+REMOTE_CHECK := $(shell cd $(SRC_LOCATION); $(GIT_TOOL) remote -v | grep -E 'github\.com[/:]AzyrRuthless/KernelSU')
 
 ifneq ($(REMOTE_CHECK),)
 ifeq ($(shell cd $(SRC_LOCATION); $(GIT_TOOL) rev-parse --is-shallow-repository),true)
