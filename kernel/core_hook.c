@@ -19,6 +19,12 @@
 #include <linux/uaccess.h>
 #include <linux/uidgid.h>
 #include <linux/version.h>
+#include <linux/random.h>
+#include <linux/bitops.h>
+#include <asm/exception.h>
+#include <asm/insn.h>
+#include <asm/traps.h>
+#include <asm/barrier.h>
 #include <linux/mount.h>
 
 #include <linux/fs.h>
@@ -64,6 +70,86 @@ static inline bool is_allow_su(void)
 	}
 	return ksu_is_allow_uid(current_uid().val);
 }
+
+#ifdef CONFIG_ARM64
+
+static bool cntvct_protection_enabled = false;
+
+// MRS Xt, CNTVCT_EL0: mask out the destination register (Rt)
+#define MRS_CNTVCT_MASK  0xffffffe0U
+#define MRS_CNTVCT_VAL   0xd53bf500U
+
+static int cntvct_undef_handler(struct pt_regs *regs, u32 insn)
+{
+	if (unlikely((insn & MRS_CNTVCT_MASK) != MRS_CNTVCT_VAL))
+		return 1;
+
+	// Only spoof if KernelSU is active and manager is valid
+	if (!is_allow_su() || !ksu_is_manager_uid_valid())
+		return 1;
+
+	u64 phys_cnt;
+	asm volatile("mrs %0, cntpct_el0" : "=r"(phys_cnt));
+
+	// Add realistic timing noise (±8 ticks) to mimic clean system jitter
+	s64 noise = (get_random_u32() & 0xF) - 8; // range: -8 to +7
+	u64 fake_vct = phys_cnt + noise;
+
+	// Write to destination register (X0-X30); ignore XZR (X31)
+	int rt = (insn >> 5) & 0x1F;
+	if (rt < 31)
+		regs->regs[rt] = fake_vct;
+
+	regs->pc += 4; // skip trapped instruction
+	return 0;
+}
+
+static struct undef_hook cntvct_hook = {
+	.instr_mask  = MRS_CNTVCT_MASK,
+	.instr_val   = MRS_CNTVCT_VAL,
+	.pstate_mask = 0,  // match any PSTATE
+	.pstate_val  = 0,
+	.fn          = cntvct_undef_handler,
+};
+
+static void enable_cntvct_protection(void)
+{
+	if (cntvct_protection_enabled)
+		return;
+
+	register_undef_hook(&cntvct_hook);
+
+	// Disable direct EL0 access to CNTVCT_EL0
+	u64 cntkctl;
+	asm volatile("mrs %0, cntkctl_el1" : "=r"(cntkctl));
+	cntkctl &= ~BIT(1); // clear EL0VCTEN
+	asm volatile("msr cntkctl_el1, %0" :: "r"(cntkctl) : "memory");
+
+	cntvct_protection_enabled = true;
+	pr_info("KernelSU: CNTVCT jitter protection enabled\n");
+}
+
+static void disable_cntvct_protection(void)
+{
+	if (!cntvct_protection_enabled)
+		return;
+
+	u64 cntkctl;
+	asm volatile("mrs %0, cntkctl_el1" : "=r"(cntkctl));
+	cntkctl |= BIT(1); // restore EL0VCTEN
+	asm volatile("msr cntkctl_el1, %0" :: "r"(cntkctl) : "memory");
+
+	unregister_undef_hook(&cntvct_hook);
+	cntvct_protection_enabled = false;
+	pr_info("KernelSU: CNTVCT jitter protection disabled\n");
+}
+
+#else /* !CONFIG_ARM64 */
+
+static inline void enable_cntvct_protection(void) {}
+static inline void disable_cntvct_protection(void) {}
+
+#endif /* CONFIG_ARM64 */
 
 static inline bool is_unsupported_uid(uid_t uid)
 {
@@ -957,9 +1043,11 @@ void __init ksu_lsm_hook_init(void)
 
 void __init ksu_core_init(void)
 {
+	enable_cntvct_protection();
 	ksu_lsm_hook_init();
 }
 
 void ksu_core_exit(void)
 {
+	disable_cntvct_protection();
 }
