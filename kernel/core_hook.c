@@ -82,17 +82,17 @@ static u64 last_fake_vct = 0;
 #define MRS_CNTVCT_VAL   0xd53bf500U
 
 // Generate timing noise that mimics real hardware jitter:
-// - 75%: small noise (-8 to +7 ticks)
-// - 25%: larger noise (-32 to +31 ticks)
+// - 50%: medium noise (-16 to +15 ticks)
+// - 50%: large noise (-64 to +63 ticks)
 static s64 realistic_laplace_noise(void)
 {
 	u32 r = get_random_u32();
-	if (r & 0x3) {
-		// 75% chance: small noise in range [-8, +7]
-		return ((r >> 2) & 0xF) - 8;
+	if (r & 0x1) {
+		// 50% chance: medium noise in range [-16, +15]
+		return ((r >> 1) & 0x1F) - 16;
 	} else {
-		// 25% chance: larger noise in range [-32, +31]
-		return ((r >> 4) & 0x3F) - 32;
+		// 50% chance: larger noise in range [-64, +63]
+		return ((r >> 5) & 0x7F) - 64;
 	}
 }
 
