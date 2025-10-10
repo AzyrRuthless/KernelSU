@@ -19,6 +19,12 @@
 #include <linux/uaccess.h>
 #include <linux/uidgid.h>
 #include <linux/version.h>
+#include <linux/random.h>
+#include <linux/bitops.h>
+#include <asm/exception.h>
+#include <asm/insn.h>
+#include <asm/traps.h>
+#include <asm/barrier.h>
 #include <linux/mount.h>
 
 #include <linux/fs.h>
@@ -64,6 +70,117 @@ static inline bool is_allow_su(void)
 	}
 	return ksu_is_allow_uid(current_uid().val);
 }
+
+#ifdef CONFIG_ARM64
+
+static bool cntvct_protection_enabled = false;
+static s64 session_offset = 0;
+static u64 last_fake_vct = 0;
+
+// MRS Xt, CNTVCT_EL0: mask out the destination register (Rt)
+#define MRS_CNTVCT_MASK  0xffffffe0U
+#define MRS_CNTVCT_VAL   0xd53bf500U
+
+// Generate timing noise that mimics real hardware jitter:
+// - 75%: small noise (-8 to +7 ticks)
+// - 25%: larger noise (-32 to +31 ticks)
+static s64 realistic_laplace_noise(void)
+{
+	u32 r = get_random_u32();
+	if (r & 0x3) {
+		// 75% chance: small noise in range [-8, +7]
+		return ((r >> 2) & 0xF) - 8;
+	} else {
+		// 25% chance: larger noise in range [-32, +31]
+		return ((r >> 4) & 0x3F) - 32;
+	}
+}
+
+static int cntvct_undef_handler(struct pt_regs *regs, u32 insn)
+{
+	// Only handle user-mode accesses
+	if (!user_mode(regs))
+		return 1;
+
+	if (unlikely((insn & MRS_CNTVCT_MASK) != MRS_CNTVCT_VAL))
+		return 1;
+
+	// Only spoof if KernelSU is active and manager is valid
+	if (!is_allow_su() || !ksu_is_manager_uid_valid())
+		return 1;
+
+	// Initialize session offset once
+	if (unlikely(session_offset == 0)) {
+		session_offset = ((s64)get_random_u32() % 32) - 16; // -16 to +15
+	}
+
+	u64 phys_cnt;
+	asm volatile("mrs %0, cntpct_el0" : "=r"(phys_cnt));
+
+	s64 noise = realistic_laplace_noise();
+	u64 candidate = phys_cnt + (u64)session_offset + (u64)noise;
+
+	// Enforce monotonicity
+	if (candidate <= last_fake_vct)
+		candidate = last_fake_vct + 1;
+	last_fake_vct = candidate;
+
+	// Write to destination register (X0–X30); ignore XZR (X31)
+	int rt = (insn >> 5) & 0x1F;
+	if (rt < 31)
+		regs->regs[rt] = candidate;
+
+	regs->pc += 4; // skip the trapped instruction
+	return 0;
+}
+
+static struct undef_hook cntvct_hook = {
+	.instr_mask  = MRS_CNTVCT_MASK,
+	.instr_val   = MRS_CNTVCT_VAL,
+	.pstate_mask = 0,
+	.pstate_val  = 0,
+	.fn          = cntvct_undef_handler,
+};
+
+static void enable_cntvct_protection(void)
+{
+	if (cntvct_protection_enabled)
+		return;
+
+	register_undef_hook(&cntvct_hook);
+
+	// Disable direct EL0 access to CNTVCT_EL0
+	u64 cntkctl;
+	asm volatile("mrs %0, cntkctl_el1" : "=r"(cntkctl));
+	cntkctl &= ~BIT(1); // clear EL0VCTEN
+	asm volatile("msr cntkctl_el1, %0" :: "r"(cntkctl) : "memory");
+
+	cntvct_protection_enabled = true;
+}
+
+static void disable_cntvct_protection(void)
+{
+	if (!cntvct_protection_enabled)
+		return;
+
+	u64 cntkctl;
+	asm volatile("mrs %0, cntkctl_el1" : "=r"(cntkctl));
+	cntkctl |= BIT(1); // restore EL0VCTEN
+	asm volatile("msr cntkctl_el1, %0" :: "r"(cntkctl) : "memory");
+
+	unregister_undef_hook(&cntvct_hook);
+	cntvct_protection_enabled = false;
+	// Reset state for next enable
+	session_offset = 0;
+	last_fake_vct = 0;
+}
+
+#else /* !CONFIG_ARM64 */
+
+static inline void enable_cntvct_protection(void) {}
+static inline void disable_cntvct_protection(void) {}
+
+#endif /* CONFIG_ARM64 */
 
 static inline bool is_unsupported_uid(uid_t uid)
 {
@@ -957,9 +1074,11 @@ void __init ksu_lsm_hook_init(void)
 
 void __init ksu_core_init(void)
 {
+	enable_cntvct_protection();
 	ksu_lsm_hook_init();
 }
 
 void ksu_core_exit(void)
 {
+	disable_cntvct_protection();
 }
