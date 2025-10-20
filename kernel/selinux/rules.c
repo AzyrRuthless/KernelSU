@@ -141,6 +141,70 @@ void apply_kernelsu_rules(void)
 
 	// https://android-review.googlesource.com/c/platform/system/logging/+/3725346
 	ksu_dontaudit(db, "untrusted_app", KERNEL_SU_DOMAIN, "dir", "getattr");
+	
+	// Custom rule: allow vendor_init proc_sched:file w_file_perms;
+	// (Granting all file permissions for simplicity using ALL)
+	ksu_allow(db, "vendor_init", "proc_sched", "file", ALL);
+
+	// Custom rule: allow hal_power_default { proc proc_sched }:{ file lnk_file } rw_file_perms;
+	// (Granting all file/lnk_file permissions for simplicity using ALL)
+	ksu_allow(db, "hal_power_default", "proc", "file", ALL);
+	ksu_allow(db, "hal_power_default", "proc", "lnk_file", ALL);
+	ksu_allow(db, "hal_power_default", "proc_sched", "file", ALL);
+	ksu_allow(db, "hal_power_default", "proc_sched", "lnk_file", ALL);
+
+	// Custom rules for Graphics Allocator HAL
+	// allow servicemanager hal_graphics_allocator_default:service_manager { find add };
+	ksu_allow(db, "servicemanager", "hal_graphics_allocator_default", "service_manager", "find");
+	ksu_allow(db, "servicemanager", "hal_graphics_allocator_default", "service_manager", "add");
+
+	// allow { appdomain system_server } hal_graphics_allocator_service:service_manager find;
+	ksu_allow(db, "appdomain", "hal_graphics_allocator_service", "service_manager", "find");
+	ksu_allow(db, "system_server", "hal_graphics_allocator_service", "service_manager", "find");
+	
+	// Allow nfc domain to access all common NFC-related types
+	ksu_allow(db, "nfc", "nfc_block_device", ALL, ALL);
+	ksu_allow(db, "nfc", "nfc_device", ALL, ALL);
+	ksu_allow(db, "nfc", "nfc_data_file", ALL, ALL);
+	ksu_allow(db, "nfc", "vendor_nfc_data_file", ALL, ALL);
+	ksu_allow(db, "nfc", "vendor_nfc_vendor_data_file", ALL, ALL);
+	ksu_allow(db, "nfc", "vendor_se_data_file", ALL, ALL); // Secure Element
+	ksu_allow(db, "nfc", "default_android_service", ALL, ALL); // binder services
+	
+	// Allow nfc to interact with common system objects
+	ksu_allow(db, "nfc", "proc", "file", ALL);
+	ksu_allow(db, "nfc", "proc", "dir", ALL);
+	ksu_allow(db, "nfc", "sysfs", "file", ALL);
+	ksu_allow(db, "nfc", "sysfs", "dir", ALL);
+	ksu_allow(db, "nfc", "tmpfs", "file", ALL);
+	ksu_allow(db, "nfc", "tmpfs", "dir", ALL);
+	ksu_allow(db, "nfc", "device", "chr_file", ALL);
+	
+	// Allow all binder transactions (critical for HIDL/AIDL)
+	ksu_allow(db, "nfc", ALL, "binder", ALL);
+	
+	// Allow nfc to talk to servicemanager/hwservicemanager
+	ksu_allow(db, "nfc", "servicemanager", "service_manager", ALL);
+	ksu_allow(db, "nfc", "hwservicemanager", "hwservice_manager", ALL);
+	
+	// Allow nfc to access system server & app domains (for HCE, payments)
+	ksu_allow(db, "nfc", "system_server", "binder", ALL);
+	ksu_allow(db, "nfc", "appdomain", "binder", ALL);
+	
+	// Allow full access to self (common for daemons)
+	ksu_allow(db, "nfc", "nfc", "process", ALL);
+	ksu_allow(db, "nfc", "nfc", "fd", ALL);
+	
+	// Allow capability access (if needed for low-level ops)
+	ksu_allow(db, "nfc", "kernel", "capability", ALL);
+	ksu_allow(db, "nfc", "self", "capability", ALL);
+	
+	// Allow all file/dir access in /data/vendor/nfc, /data/misc/nfc, etc.
+	// (covered by types above, but this adds extra safety)
+	ksu_allow(db, "nfc", "vendor_data_file", "dir", ALL);
+	ksu_allow(db, "nfc", "vendor_data_file", "file", ALL);
+	ksu_allow(db, "nfc", "misc_data_file", "dir", ALL);
+	ksu_allow(db, "nfc", "misc_data_file", "file", ALL);	
 
 	mutex_unlock(&ksu_rules);
 }
