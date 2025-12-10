@@ -144,8 +144,7 @@ static int do_execve_sucompat_for_kp(const char __user **filename_user)
 	(ksu_sucompat_user_common(filename_ptr, "sys_execve", true))
 #endif
 
-int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
-			 int *__unused_flags)
+int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode)
 {
 	if (!is_su_allowed(filename_user))
 		return 0;
@@ -161,9 +160,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
 	return ksu_sucompat_user_common(filename_user, "newfstatat", false);
 }
 
-int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
-			       void *__never_use_argv, void *__never_use_envp,
-			       int *__never_use_flags)
+int ksu_handle_execve_sucompat(const char __user **filename_user)
 {
 	if (!is_su_allowed(filename_user))
 		return 0;
@@ -171,9 +168,7 @@ int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
 	return handle_execve_sucompat(filename_user);
 }
 
-int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
-				 void *__never_use_argv, void *__never_use_envp,
-				 int *__never_use_flags)
+int ksu_handle_execveat_sucompat(struct filename **filename_ptr)
 {
 	struct filename *filename;
 
@@ -200,8 +195,7 @@ int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
 			void *envp, int *flags)
 {
 	ksu_handle_execveat_ksud(fd, filename_ptr, argv, envp, flags);
-	return ksu_handle_execveat_sucompat(fd, filename_ptr, argv, envp,
-					    flags);
+	return ksu_handle_execveat_sucompat(filename_ptr);
 }
 
 // dead code: devpts handling

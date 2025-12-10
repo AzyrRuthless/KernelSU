@@ -303,8 +303,7 @@ static void ksu_sys_enter_handler(void *data, struct pt_regs *regs, long id)
 					(const char __user **)&PT_REGS_PARM2(
 						regs);
 				int *mode = (int *)&PT_REGS_PARM3(regs);
-				ksu_handle_faccessat(dfd, filename_user, mode,
-						     NULL);
+				ksu_handle_faccessat(dfd, filename_user, mode);
 				return;
 			}
 
@@ -319,8 +318,7 @@ static void ksu_sys_enter_handler(void *data, struct pt_regs *regs, long id)
 						filename_user);
 				} else {
 					ksu_handle_execve_sucompat(
-						NULL, filename_user, NULL, NULL,
-						NULL);
+						filename_user);
 				}
 				return;
 			}
