@@ -28,6 +28,11 @@
 #define EXPECTED_HASH_RIFSXD                                                  \
 	"79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7"
 
+// AzyrRuthless/KernelSU
+#define EXPECTED_SIZE_AZYRRUTHLESS 0x385
+#define EXPECTED_HASH_AZYRRUTHLESS                                             \
+	"aa893bd4e021b30de185e4fe4fb0a340cabbdf4bd1f8a78fd4b53582f9241bf6"
+
 typedef struct {
 	u32 size;
 	const char *sha256;
