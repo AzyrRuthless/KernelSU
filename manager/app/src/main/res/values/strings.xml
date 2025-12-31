@@ -184,4 +184,6 @@
     <string name="tab_readme">README</string>
     <string name="tab_releases">Releases</string>
     <string name="tab_info">Info</string>
+    <string name="terminal">Terminal</string>
+    <string name="terminal_summary">Open internal terminal</string>
 </resources>

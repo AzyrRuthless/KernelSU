@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.runtime.Composable
@@ -53,6 +54,7 @@ import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.generated.destinations.AboutScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.AppProfileTemplateScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.TerminalScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -506,6 +508,23 @@ fun SettingPager(
                                 enableWebDebugging = it
                             }
                         )
+                        
+                    SuperArrow(
+                        title = stringResource(id = R.string.terminal),
+                        summary = stringResource(id = R.string.terminal_summary),
+                        leftAction = {
+                            Icon(
+                                Icons.Rounded.Code,
+                                modifier = Modifier.padding(end = 16.dp),
+                                contentDescription = stringResource(id = R.string.terminal),
+                                tint = colorScheme.onBackground
+                            )
+                        },
+                        onClick = {
+                            navigator.navigate(TerminalScreenDestination)
+                        }
+                    )
+                        
                     }
                 }
 
