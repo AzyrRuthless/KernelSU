@@ -250,6 +250,21 @@ fun SettingPager(
                         }
                     )
 
+                    SuperArrow(
+                        title = stringResource(id = R.string.terminal),
+                        leftAction = {
+                            Icon(
+                                Icons.Rounded.Terminal,
+                                modifier = Modifier.padding(end = 16.dp),
+                                contentDescription = stringResource(id = R.string.terminal),
+                                tint = colorScheme.onBackground
+                            )
+                        },
+                        onClick = {
+                            navigator.navigate(TerminalScreenDestination)
+                        }
+                    )
+
                     AnimatedVisibility(
                         visible = themeMode in 3..5
                     ) {
