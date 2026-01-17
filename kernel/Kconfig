@@ -24,14 +24,15 @@ config KSU_ALLOWLIST_WORKAROUND
 
 choice
 	prompt "KernelSU hooks"
-	default KSU_MANUAL_HOOK if !KPROBES
+	default KSU_TYPE_MANUAL if !KPROBES
 	default KSU_SYSCALL_HOOK if KPROBES && KRETPROBES && HAVE_SYSCALL_TRACEPOINTS
 	help
 	  KernelSU core hooks.
 
-config KSU_MANUAL_HOOK
+config KSU_TYPE_MANUAL
 	bool "KernelSU manual hook mode."
 	depends on KSU && KSU != m
+	select KSU_MANUAL_HOOK
 	help
 	  Enable manual hook support.
 
@@ -43,6 +44,19 @@ config KSU_SYSCALL_HOOK
 	  Enable KPROBES, KRETPROBES and TRACEPOINT hook for KernelSU core.
 	  This should not be used on kernel below 5.10.
 
+config KSU_TAMPER_SYSCALL_TABLE
+	bool "EXPERIMENTAL: tamper sys_call_table"
+	depends on ARM64
+	select KSU_SUCOMPAT
+	select KSU_MANUAL_HOOK
+	help
+	  Enable syscall table hijacking for sucompat.
+	  Useful for legacy kernels (3.10 - 4.14) where KProbes are unavailable.
+	  WARNING: This method modifies kernel memory directly.
+
 endchoice
+
+config KSU_MANUAL_HOOK
+	bool
 
 endmenu

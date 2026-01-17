@@ -25,6 +25,10 @@
 #include "ksu.h"
 #include "file_wrapper.h"
 
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+extern void ksu_syscall_table_hook_init(void);
+#endif
+
 struct cred *ksu_cred;
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0) &&                           \
@@ -70,6 +74,9 @@ int __init kernelsu_init(void)
 
 #ifdef CONFIG_KSU_SYSCALL_HOOK
 	ksu_syscall_hook_manager_init();
+#endif
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+	ksu_syscall_table_hook_init();
 #endif
 #ifdef CONFIG_KSU_MANUAL_HOOK
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)

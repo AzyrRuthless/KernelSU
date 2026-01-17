@@ -15,12 +15,12 @@
 
 uid_t ksu_manager_appid = KSU_INVALID_APPID;
 
-#if defined(CONFIG_KSU_MANUAL_HOOK)
-#define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list.tmp"
-#elif defined(CONFIG_KSU_SYSCALL_HOOK) ||                                        \
-	(LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0) &&                      \
-	 defined(CONFIG_KSU_MANUAL_HOOK))
+#if defined(CONFIG_KSU_SYSCALL_HOOK) || \
+    defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE) || \
+    (defined(CONFIG_KSU_MANUAL_HOOK) && LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0))
 #define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list"
+#else
+#define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list.tmp"
 #endif
 
 struct uid_data {

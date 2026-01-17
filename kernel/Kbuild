@@ -16,6 +16,7 @@ ksu_obj-y += shim.o
 ksu_obj-y += selinux/selinux.o
 ksu_obj-y += selinux/sepolicy.o
 ksu_obj-y += selinux/rules.o
+ksu_obj-$(CONFIG_KSU_TAMPER_SYSCALL_TABLE) += syscall_table_hook.o
 
 kernelsu-objs := $(ksu_obj-y)
 
