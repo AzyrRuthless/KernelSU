@@ -37,6 +37,7 @@
 #define KSU_DEFAULT_SELINUX_DOMAIN "u:r:" KERNEL_SU_DOMAIN ":s0"
 
 static DEFINE_MUTEX(allowlist_mutex);
+static DEFINE_SPINLOCK(ksu_allow_list_lock);
 
 // default profiles, these may be used frequently, so we cache it
 static struct root_profile default_root_profile;
@@ -48,31 +49,22 @@ static int allow_list_pointer __read_mostly = 0;
 
 static void remove_uid_from_arr(uid_t uid)
 {
-	int *temp_arr;
-	int i, j;
+	int i;
+	int dest = 0;
 
-	if (allow_list_pointer == 0)
-		return;
+	spin_lock(&ksu_allow_list_lock);
 
-	temp_arr = kzalloc(sizeof(allow_list_arr), GFP_KERNEL);
-	if (temp_arr == NULL) {
-		pr_err("%s: unable to allocate memory\n", __func__);
-		return;
+	for (i = 0; i < allow_list_pointer; i++) {
+		if (allow_list_arr[i] != uid)
+			allow_list_arr[dest++] = allow_list_arr[i];
 	}
 
-	for (i = j = 0; i < allow_list_pointer; i++) {
-		if (allow_list_arr[i] == uid)
-			continue;
-		temp_arr[j++] = allow_list_arr[i];
-	}
+	for (i = dest; i < allow_list_pointer; i++)
+		allow_list_arr[i] = -1;
 
-	allow_list_pointer = j;
+	allow_list_pointer = dest;
 
-	for (; j < ARRAY_SIZE(allow_list_arr); j++)
-		temp_arr[j] = -1;
-
-	memcpy(&allow_list_arr, temp_arr, PAGE_SIZE);
-	kfree(temp_arr);
+	spin_unlock(&ksu_allow_list_lock);
 }
 
 static void init_default_profiles(void)
@@ -247,8 +239,11 @@ out:
 				WARN_ON(1);
 				return false;
 			}
-			allow_list_arr[allow_list_pointer++] =
-				profile->current_uid;
+
+			spin_lock(&ksu_allow_list_lock); 
+			allow_list_arr[allow_list_pointer++] = profile->current_uid;
+			spin_unlock(&ksu_allow_list_lock);
+
 		} else {
 			remove_uid_from_arr(profile->current_uid);
 		}
@@ -282,29 +277,30 @@ out:
 bool __ksu_is_allow_uid(uid_t uid)
 {
 	int i;
+	bool ret = false;
 
-	if (forbid_system_uid(uid)) {
-		// do not bother going through the list if it's system
+	if (forbid_system_uid(uid))
 		return false;
-	}
 
 	if (likely(ksu_is_manager_appid_valid()) &&
-	    unlikely(ksu_get_manager_appid() == uid % PER_USER_RANGE)) {
-		// manager is always allowed!
+	    unlikely(ksu_get_manager_appid() == uid % PER_USER_RANGE))
 		return true;
-	}
 
 	if (likely(uid <= BITMAP_UID_MAX)) {
 		return !!(allow_list_bitmap[uid / BITS_PER_BYTE] &
 			  (1 << (uid % BITS_PER_BYTE)));
-	} else {
-		for (i = 0; i < allow_list_pointer; i++) {
-			if (allow_list_arr[i] == uid)
-				return true;
+	} 
+	
+	spin_lock(&ksu_allow_list_lock); 
+	for (i = 0; i < allow_list_pointer; i++) {
+		if (allow_list_arr[i] == uid) {
+			ret = true;
+			break;
 		}
 	}
+	spin_unlock(&ksu_allow_list_lock);
 
-	return false;
+	return ret;
 }
 
 bool __ksu_is_allow_uid_for_current(uid_t uid)
