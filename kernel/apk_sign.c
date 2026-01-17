@@ -127,7 +127,7 @@ static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset)
 		hash_str[SHA256_DIGEST_SIZE * 2] = '\0';
 
 		bin2hex(hash_str, digest, SHA256_DIGEST_SIZE);
-		pr_info("sha256: %s, expected: %s\n", hash_str,
+		pr_debug("sha256: %s, expected: %s\n", hash_str,
 			sign_key.sha256);
 		if (strcmp(sign_key.sha256, hash_str) == 0) {
 			return true;
