@@ -43,6 +43,17 @@ config KSU_SYSCALL_HOOK
 	  Enable KPROBES, KRETPROBES and TRACEPOINT hook for KernelSU core.
 	  This should not be used on kernel below 5.10.
 
+config KSU_TAMPER_SYSCALL_TABLE
+	bool "EXPERIMENTAL: tamper sys_call_table for sucompat + sys_reboot"
+	depends on (ARM || ARM64)
+	default n
+	help
+	  EXPERIMENTAL: use syscall table hijacking method demonstrated on zx2c4's
+	  kernel-assisted-superuser.
+	  Replaces sys_reboot, sys_execve, sys_newfstatat,
+	  sys_faccessat, sys_newfstat_ret manual hooks.
+	  Tested on Linux 3.10 ~ 4.14, aarch64.
+
 endchoice
 
 endmenu
