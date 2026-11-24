@@ -242,7 +242,7 @@ static int ksu_prepare_fake_status_page()
 	memcpy(fake_status, real_status, sizeof(*real_status));
 
 	fake_status->enforcing = 1;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
 	fake_status->sequence = 4;
 	fake_status->policyload = 1;
 #else
