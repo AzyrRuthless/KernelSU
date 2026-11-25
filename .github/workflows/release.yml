@@ -1,9 +1,23 @@
 name: Release
 on:
   push:
+    branches: [ "main" ]
     tags:
       - "v*"
+    paths:
+      - '.github/workflows/**'
+      - '.github/scripts/**'
+      - 'repack_apk.py'
+      - 'manager/**'
+      - 'kernel/**'
+      - 'userspace/**'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-manager:
@@ -13,6 +27,8 @@ jobs:
     needs:
       - build-manager
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v8
@@ -61,9 +77,25 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R
 
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          else
+            echo "name=build-${{ github.run_number }}-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.tag.outputs.name }}
+          prerelease: ${{ steps.tag.outputs.prerelease == 'true' }}
+          generate_release_notes: true
           files: |
             manager/*.apk
             lkm/lkm-*_kernelsu.ko
